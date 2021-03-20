@@ -61,6 +61,9 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include "point_processor/PointOdometry.h"
+#include "boost/date_time/posix_time/posix_time.hpp" //lokia test out
+#include<fstream>
+#include<iostream>
 
 namespace lio {
 
@@ -651,6 +654,12 @@ void PointOdometry::Process() {
 
       } /// iteration
     } /// enough points
+    else{
+      ofstream write;
+      write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+      write <<  "last_size not enough: " << time_corner_points_sharp_ << std::endl;
+      write.close();
+    }
     Twist<float> transform_se = transform_es_.inverse();
     Twist<float> transform_sum_tmp = transform_sum_ * transform_se;
     transform_sum_ = transform_sum_tmp;
@@ -720,6 +729,13 @@ void PointOdometry::PublishResults() {
   laser_odometry_msg_.pose.pose.position.z = transform_es_.pos.z();
   pub_diff_odometry_.publish(laser_odometry_msg_);
 
+  //lokia test out      
+  boost::posix_time::ptime my_posix_time = time_corner_points_sharp_.toBoost();
+  std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
+  ofstream write;
+  write.open("/media/lokia/lokia_data/recordOdometry/scanOdom.txt", ios::app);
+  write <<  iso_time_str << std::endl;
+	write.close();
 
   // publish cloud results according to the input output ratio
   if (io_ratio_ < 2 || frame_count_ % io_ratio_ == 1) {

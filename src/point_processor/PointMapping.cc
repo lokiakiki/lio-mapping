@@ -61,6 +61,9 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include "point_processor/PointMapping.h"
+#include "boost/date_time/posix_time/posix_time.hpp" //lokia test out
+#include<fstream>
+#include<iostream>
 
 namespace lio {
 
@@ -179,6 +182,10 @@ void PointMapping::CompactDataHandler(const sensor_msgs::PointCloud2ConstPtr &co
 
   if (compact_point_size < 4) {
     LOG(ERROR) << "compact_points not enough: " << compact_points.size();
+    ofstream write;
+    write.open("/media/lokia/datlokia_dataa/recordOdometry/returnReason.txt", ios::app);
+    write <<  "compact_points not enough: " << compact_data_msg->header.stamp << std::endl;
+    write.close();
     return;
   }
 
@@ -191,6 +198,10 @@ void PointMapping::CompactDataHandler(const sensor_msgs::PointCloud2ConstPtr &co
   if ((3 + corner_size + surf_size + full_size) != compact_point_size) {
     LOG(ERROR) << "compact data error: 3+" << corner_size << "+" << surf_size << "+" << full_size << " != "
                << compact_point_size;
+    ofstream write;
+    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write <<  "compact data error: " <<  compact_data_msg->header.stamp <<  std::endl;
+    write.close();
     return;
   }
 
@@ -384,11 +395,11 @@ void PointMapping::OptimizeTransformTobeMapped() {
       kdtree_corner_from_map->nearestKSearch(point_sel, 5, point_search_idx, point_search_sq_dis);
 
       if (point_search_sq_dis[4] < min_match_sq_dis_) {
-//        Vector3Intl vc(0, 0, 0);
+      //        Vector3Intl vc(0, 0, 0);
         Eigen::Vector3f vc(0, 0, 0);
 
         for (int j = 0; j < 5; j++) {
-//          vc += Vector3Intl(laser_cloud_corner_from_map_->points[point_search_idx[j]]);
+        //          vc += Vector3Intl(laser_cloud_corner_from_map_->points[point_search_idx[j]]);
           const PointT &point_sel_tmp = laser_cloud_corner_from_map_->points[point_search_idx[j]];
           vc.x() += point_sel_tmp.x;
           vc.y() += point_sel_tmp.y;
@@ -400,7 +411,7 @@ void PointMapping::OptimizeTransformTobeMapped() {
         mat_a.setZero();
 
         for (int j = 0; j < 5; j++) {
-//          Vector3Intl a = Vector3Intl(laser_cloud_corner_from_map_->points[point_search_idx[j]]) - vc;
+        //          Vector3Intl a = Vector3Intl(laser_cloud_corner_from_map_->points[point_search_idx[j]]) - vc;
           const PointT &point_sel_tmp = laser_cloud_corner_from_map_->points[point_search_idx[j]];
           Eigen::Vector3f a;
           a.x() = point_sel_tmp.x - vc.x();
@@ -440,23 +451,23 @@ void PointMapping::OptimizeTransformTobeMapped() {
 
           // NOTE: (P1 - P2) x ((P0 - P1)x(P0 - P2)), point to the point
 
-//          float a012 = sqrt(((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
-//                                * ((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
-//                                + ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))
-//                                    * ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))
-//                                + ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1))
-//                                    * ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1)));
+          //          float a012 = sqrt(((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
+          //                                * ((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
+          //                                + ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))
+          //                                    * ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))
+          //                                + ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1))
+          //                                    * ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1)));
 
-//          float l12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+          //          float l12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
 
-//          float la = ((y1 - y2) * ((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
-//              + (z1 - z2) * ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))) / a012 / l12;
-//
-//          float lb = -((x1 - x2) * ((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
-//              - (z1 - z2) * ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1))) / a012 / l12;
-//
-//          float lc = -((x1 - x2) * ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))
-//              + (y1 - y2) * ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1))) / a012 / l12;
+          //          float la = ((y1 - y2) * ((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
+          //              + (z1 - z2) * ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))) / a012 / l12;
+          //
+          //          float lb = -((x1 - x2) * ((x0 - x1) * (y0 - y2) - (x0 - x2) * (y0 - y1))
+          //              - (z1 - z2) * ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1))) / a012 / l12;
+          //
+          //          float lc = -((x1 - x2) * ((x0 - x1) * (z0 - z2) - (x0 - x2) * (z0 - z1))
+          //              + (y1 - y2) * ((y0 - y1) * (z0 - z2) - (y0 - y2) * (z0 - z1))) / a012 / l12;
 
           Eigen::Vector3f a012_vec = (X0 - X1).cross(X0 - X2);
 
@@ -505,7 +516,7 @@ void PointMapping::OptimizeTransformTobeMapped() {
           if (s > 0.1 && is_in_laser_fov) {
             laser_cloud_ori.push_back(point_ori);
             coeff_sel.push_back(coeff);
-//            abs_coeff_sel_spc.push_back(abs_coeff);
+           //            abs_coeff_sel_spc.push_back(abs_coeff);
           }
         }
       }
@@ -627,7 +638,7 @@ void PointMapping::OptimizeTransformTobeMapped() {
       Eigen::Vector3f p(point_ori.x, point_ori.y, point_ori.z);
       Eigen::Vector3f w(coeff.x, coeff.y, coeff.z);
 
-//      Eigen::Vector3f J_r = w.transpose() * RotationVectorJacobian(R_SO3, p);
+      //      Eigen::Vector3f J_r = w.transpose() * RotationVectorJacobian(R_SO3, p);
       Eigen::Vector3f J_r = -w.transpose() * (transform_tobe_mapped_.rot * SkewSymmetric(p));
       Eigen::Vector3f J_t = w.transpose();
 
@@ -694,7 +705,7 @@ void PointMapping::OptimizeTransformTobeMapped() {
     if (!isfinite(r_so3.z())) r_so3.z() = 0;
 
     SO3 tobe_mapped_SO3 = SO3::exp(r_so3);
-//    transform_tobe_mapped_.rot = tobe_mapped_SO3.unit_quaternion().normalized();
+    //    transform_tobe_mapped_.rot = tobe_mapped_SO3.unit_quaternion().normalized();
 
     transform_tobe_mapped_.rot =
         transform_tobe_mapped_.rot * DeltaQ(Eigen::Vector3f(mat_X(0, 0), mat_X(1, 0), mat_X(2, 0)));
@@ -766,6 +777,10 @@ void PointMapping::Process() {
   if (!HasNewData()) {
     // waiting for new data to arrive...
     // DLOG(INFO) << "no data received or dropped";
+    ofstream write;
+    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write <<  "PMHasNewData after: " << time_laser_odometry_ << std::endl;
+    write.close();
     return;
   }
 
@@ -773,6 +788,10 @@ void PointMapping::Process() {
 
   ++frame_count_;
   if (frame_count_ < num_stack_frames_) {
+    ofstream write;
+    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write <<  "PMf_count_<num_stack_f_ after: " << time_laser_odometry_ << std::endl;
+    write.close();
     return;
   }
   frame_count_ = 0;
@@ -815,7 +834,7 @@ void PointMapping::Process() {
   if (transform_tobe_mapped_.pos.y() + 25.0 < 0) --center_cube_j;
   if (transform_tobe_mapped_.pos.z() + 25.0 < 0) --center_cube_k;
 
-//  DLOG(INFO) << "center_before: " << center_cube_i << " " << center_cube_j << " " << center_cube_k;
+  //  DLOG(INFO) << "center_before: " << center_cube_i << " " << center_cube_j << " " << center_cube_k;
   {
     while (center_cube_i < 3) {
       for (int j = 0; j < laser_cloud_width_; ++j) {
@@ -926,9 +945,9 @@ void PointMapping::Process() {
   laser_cloud_valid_idx_.clear();
   laser_cloud_surround_idx_.clear();
 
-//  DLOG(INFO) << "center_after: " << center_cube_i << " " << center_cube_j << " " << center_cube_k;
-//  DLOG(INFO) << "laser_cloud_cen: " << laser_cloud_cen_length_ << " " << laser_cloud_cen_width_ << " "
-//            << laser_cloud_cen_height_;
+  //  DLOG(INFO) << "center_after: " << center_cube_i << " " << center_cube_j << " " << center_cube_k;
+  //  DLOG(INFO) << "laser_cloud_cen: " << laser_cloud_cen_length_ << " " << laser_cloud_cen_width_ << " "
+  //            << laser_cloud_cen_height_;
 
   for (int i = center_cube_i - 2; i <= center_cube_i + 2; ++i) {
     for (int j = center_cube_j - 2; j <= center_cube_j + 2; ++j) {
@@ -1267,13 +1286,21 @@ void PointMapping::PublishResults() {
   odom_aft_mapped_.pose.pose.position.y = transform_aft_mapped_.pos.y();
   odom_aft_mapped_.pose.pose.position.z = transform_aft_mapped_.pos.z();
 
-//  odom_aft_mapped_.twist.twist.angular.x = transform_bef_mapped_.rot.x();
-//  odom_aft_mapped_.twist.twist.angular.y = transform_bef_mapped_.rot.y();
-//  odom_aft_mapped_.twist.twist.angular.z = transform_bef_mapped_.rot.z();
-//  odom_aft_mapped_.twist.twist.linear.x = transform_bef_mapped_.pos.x();
-//  odom_aft_mapped_.twist.twist.linear.y = transform_bef_mapped_.pos.y();
-//  odom_aft_mapped_.twist.twist.linear.z = transform_bef_mapped_.pos.z();
+  //  odom_aft_mapped_.twist.twist.angular.x = transform_bef_mapped_.rot.x();
+  //  odom_aft_mapped_.twist.twist.angular.y = transform_bef_mapped_.rot.y();
+  //  odom_aft_mapped_.twist.twist.angular.z = transform_bef_mapped_.rot.z();
+  //  odom_aft_mapped_.twist.twist.linear.x = transform_bef_mapped_.pos.x();
+  //  odom_aft_mapped_.twist.twist.linear.y = transform_bef_mapped_.pos.y();
+  //  odom_aft_mapped_.twist.twist.linear.z = transform_bef_mapped_.pos.z();
   pub_odom_aft_mapped_.publish(odom_aft_mapped_);
+
+  //lokia test out
+  boost::posix_time::ptime my_posix_time = time_laser_odometry_.toBoost();
+  std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
+  ofstream write;
+  write.open("/media/lokia/lokia_data/recordOdometry/scanMap.txt", ios::app);
+  write <<  iso_time_str << std::endl;
+	write.close();
 
   aft_mapped_trans_.stamp_ = time_laser_odometry_;
   aft_mapped_trans_.setRotation(tf::Quaternion(geo_quat.x, geo_quat.y, geo_quat.z, geo_quat.w));

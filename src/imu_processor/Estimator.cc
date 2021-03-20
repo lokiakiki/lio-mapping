@@ -34,6 +34,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/search/impl/flann_search.hpp>
 #include <pcl/filters/extract_indices.h>
+#include "boost/date_time/posix_time/posix_time.hpp"  //lokia test out
 
 namespace lio {
 
@@ -548,6 +549,11 @@ void Estimator::ProcessLaserOdom(const Transform &transform_in, const std_msgs::
 
             ROS_WARN_STREAM(">>>>>>> IMU initialized <<<<<<<");
 
+            // lokia test out
+            boost::posix_time::ptime my_posix_time = header.stamp.toBoost();
+            std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
+            std::cout << iso_time_str << std::endl; 
+
             if (estimator_config_.enable_deskew || estimator_config_.cutoff_deskew) {
               ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("/enable_odom");
               std_srvs::SetBool srv;
@@ -616,7 +622,7 @@ void Estimator::ProcessLaserOdom(const Transform &transform_in, const std_msgs::
         opt_point_coeff_mask_.last() = true;
 
         break;
-      }
+      } //end case NOT_INITED
       case INITED: {
 
         // TODO
@@ -756,10 +762,18 @@ void Estimator::ProcessLaserOdom(const Transform &transform_in, const std_msgs::
           laser_odom_.pose.pose.position.y = transform_last.pos.y();
           laser_odom_.pose.pose.position.z = transform_last.pos.z();
           pub_laser_odom_.publish(laser_odom_);
+
+          // lokia test out
+          boost::posix_time::ptime my_posix_time = header.stamp.toBoost();
+          std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
+          ofstream write;
+          write.open("/media/lokia/lokia_data/recordOdometry/odom.txt", ios::app);
+          write <<  iso_time_str << std::endl;
+          write.close();
         }
 
         break;
-      }
+      } //end case INITED
       default: {
         break;
       }
@@ -2675,8 +2689,8 @@ void Estimator::ProcessEstimation() {
     });
     buf_lk.unlock();
 
-//    DLOG(INFO) << "measurement obtained: " << measurements.size() << ", first imu data size: "
-//              << measurements.front().first.size();
+    //    DLOG(INFO) << "measurement obtained: " << measurements.size() << ", first imu data size: "
+    //              << measurements.front().first.size();
 
     thread_mutex_.lock();
     for (auto &measurement : measurements) {
@@ -2735,37 +2749,37 @@ void Estimator::ProcessEstimation() {
 
       this->ProcessCompactData(compact_data_msg, compact_data_msg->header);
 
-//      const auto &pos_from_msg = compact_data_msg->pose.pose.position;
-//      const auto &quat_from_msg = compact_data_msg->pose.pose.orientation;
-//      transform_to_init_.pos.x() = pos_from_msg.x;
-//      transform_to_init_.pos.y() = pos_from_msg.y;
-//      transform_to_init_.pos.z() = pos_from_msg.z;
-//
-//      transform_to_init_.rot.w() = quat_from_msg.w;
-//      transform_to_init_.rot.x() = quat_from_msg.x;
-//      transform_to_init_.rot.y() = quat_from_msg.y;
-//      transform_to_init_.rot.z() = quat_from_msg.z;
+    //      const auto &pos_from_msg = compact_data_msg->pose.pose.position;
+    //      const auto &quat_from_msg = compact_data_msg->pose.pose.orientation;
+    //      transform_to_init_.pos.x() = pos_from_msg.x;
+    //      transform_to_init_.pos.y() = pos_from_msg.y;
+    //      transform_to_init_.pos.z() = pos_from_msg.z;
+    //
+    //      transform_to_init_.rot.w() = quat_from_msg.w;
+    //      transform_to_init_.rot.x() = quat_from_msg.x;
+    //      transform_to_init_.rot.y() = quat_from_msg.y;
+    //      transform_to_init_.rot.z() = quat_from_msg.z;
 
-      // TODO: move all the processes into node?
+          // TODO: move all the processes into node?
 
-//      DLOG(INFO) << transform_to_init_;
-//      ProcessLaserOdom(transform_to_init_, compact_data_msg->header);
+    //      DLOG(INFO) << transform_to_init_;
+    //      ProcessLaserOdom(transform_to_init_, compact_data_msg->header);
 
       double whole_t = t_s.Toc();
-//      PrintStatistics(this, whole_t);
-//      std_msgs::Header header = compact_data_msg->header;
-//      header.frame_id = "world";
+    //      PrintStatistics(this, whole_t);
+    //      std_msgs::Header header = compact_data_msg->header;
+    //      header.frame_id = "world";
 
-      // Pub results
+          // Pub results
 
-//      PubOdometry(estimator, header);
-//      PubKeyPoses(estimator, header);
-//      PubCameraPose(estimator, header);
-//      PubPointCloud(estimator, header);
-//      PubTF(estimator, header);
-//      pubKeyframe(estimator);
-//      if (relo_msg != NULL)
-//        PubRelocalization(estimator);
+    //      PubOdometry(estimator, header);
+    //      PubKeyPoses(estimator, header);
+    //      PubCameraPose(estimator, header);
+    //      PubPointCloud(estimator, header);
+    //      PubTF(estimator, header);
+    //      pubKeyframe(estimator);
+    //      if (relo_msg != NULL)
+    //        PubRelocalization(estimator);
     }
     thread_mutex_.unlock();
     buf_mutex_.lock();

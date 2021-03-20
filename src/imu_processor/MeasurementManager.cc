@@ -51,6 +51,7 @@ void MeasurementManager::SetupRos(ros::NodeHandle &nh) {
 //      nh_.subscribe<nav_msgs::Odometry>(mm_config_.laser_odom_topic, 10, &MeasurementManager::LaserOdomHandler, this);
 }
 
+//imu_buf_: imu    compact_data_buf_: lidar
 PairMeasurements MeasurementManager::GetMeasurements() {
 
   PairMeasurements measurements;

@@ -32,6 +32,9 @@
 
 #include <pcl/filters/crop_box.h>
 #include <pcl/common/transforms.h>
+#include "boost/date_time/posix_time/posix_time.hpp" //lokia test out
+#include<fstream>
+#include<iostream>
 
 //#define DEBUG
 
@@ -215,6 +218,15 @@ void MapBuilder::PublishMapBuilderResults() {
                                           transform_aft_mapped_.pos.y(),
                                           transform_aft_mapped_.pos.z()));
   tf_broadcaster_.sendTransform(aft_mapped_trans_);
+
+  //lokia test out
+  boost::posix_time::ptime my_posix_time = time_laser_odometry_.toBoost();
+  std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
+  std::cout << "map "  << iso_time_str << std::endl; 
+  ofstream write;
+  write.open("/media/lokia/lokia_data/recordOdometry/map.txt", ios::app);
+  write <<  iso_time_str << std::endl;
+  write.close();
 }
 
 void MapBuilder::ProcessMap() {
@@ -235,6 +247,10 @@ void MapBuilder::ProcessMap() {
 
   ++frame_count_;
   if (frame_count_ < num_stack_frames_) {
+    ofstream write;
+    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write <<  "MBf_count_<num_stack_f_ after: " << time_laser_odometry_ << std::endl;
+    write.close();
     return;
   }
   frame_count_ = 0;
