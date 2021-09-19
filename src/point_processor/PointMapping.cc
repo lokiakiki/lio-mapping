@@ -183,7 +183,7 @@ void PointMapping::CompactDataHandler(const sensor_msgs::PointCloud2ConstPtr &co
   if (compact_point_size < 4) {
     LOG(ERROR) << "compact_points not enough: " << compact_points.size();
     ofstream write;
-    write.open("/media/lokia/datlokia_dataa/recordOdometry/returnReason.txt", ios::app);
+    write.open("/home/lokia/testout/recordOdometry/returnReason.txt", ios::app);
     write <<  "compact_points not enough: " << compact_data_msg->header.stamp << std::endl;
     write.close();
     return;
@@ -199,7 +199,7 @@ void PointMapping::CompactDataHandler(const sensor_msgs::PointCloud2ConstPtr &co
     LOG(ERROR) << "compact data error: 3+" << corner_size << "+" << surf_size << "+" << full_size << " != "
                << compact_point_size;
     ofstream write;
-    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write.open("/home/lokia/testout/recordOdometry/returnReason.txt", ios::app);
     write <<  "compact data error: " <<  compact_data_msg->header.stamp <<  std::endl;
     write.close();
     return;
@@ -778,7 +778,7 @@ void PointMapping::Process() {
     // waiting for new data to arrive...
     // DLOG(INFO) << "no data received or dropped";
     ofstream write;
-    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write.open("/home/lokia/testout/recordOdometry/returnReason.txt", ios::app);
     write <<  "PMHasNewData after: " << time_laser_odometry_ << std::endl;
     write.close();
     return;
@@ -789,7 +789,7 @@ void PointMapping::Process() {
   ++frame_count_;
   if (frame_count_ < num_stack_frames_) {
     ofstream write;
-    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write.open("/home/lokia/testout/recordOdometry/returnReason.txt", ios::app);
     write <<  "PMf_count_<num_stack_f_ after: " << time_laser_odometry_ << std::endl;
     write.close();
     return;
@@ -1298,7 +1298,7 @@ void PointMapping::PublishResults() {
   boost::posix_time::ptime my_posix_time = time_laser_odometry_.toBoost();
   std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
   ofstream write;
-  write.open("/media/lokia/lokia_data/recordOdometry/scanMap.txt", ios::app);
+  write.open("/home/lokia/testout/recordOdometry/scanMap.txt", ios::app);
   write <<  iso_time_str << std::endl;
 	write.close();
 

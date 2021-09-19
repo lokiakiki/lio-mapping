@@ -96,9 +96,15 @@ typedef typename pcl::PointCloud<PointT>::ConstPtr PointCloudConstPtr;
 typedef Twist<float> Transform;
 typedef Sophus::SO3f SO3;
 
+Eigen::Vector3d sL01;
+
 class PointOdometry {
 
  public:
+
+  int cLProcess = 0;
+
+
   PointOdometry(float scan_period = 0.1,
                 int io_ratio = 2,
                 size_t num_max_iterations = 25);
@@ -120,6 +126,8 @@ class PointOdometry {
   size_t TransformToEnd(PointCloudPtr &cloud);
 
   void Process();
+
+  Eigen::Vector3d Process4Odom(void);
 
   void PublishResults();
 

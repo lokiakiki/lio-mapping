@@ -302,6 +302,8 @@ void PointOdometry::Process() {
 
   Reset();
 
+  ++cLProcess;
+
   if (!system_inited_) {
     corner_points_less_sharp_.swap(last_corner_cloud_);
     surf_points_less_flat_.swap(last_surf_cloud_);
@@ -656,7 +658,7 @@ void PointOdometry::Process() {
     } /// enough points
     else{
       ofstream write;
-      write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+      write.open("/home/lokia/testout/recordOdometry/returnReason.txt", ios::app);
       write <<  "last_size not enough: " << time_corner_points_sharp_ << std::endl;
       write.close();
     }
@@ -690,6 +692,11 @@ void PointOdometry::Process() {
   PublishResults();
 
 } // PointOdometry::Process
+
+Eigen::Vector3d PointOdometry::Process4Odom(void){
+  Eigen::Vector3d sL01(1, 1, 1);
+  return sL01;
+}
 
 void PointOdometry::PublishResults() {
 
@@ -733,9 +740,16 @@ void PointOdometry::PublishResults() {
   boost::posix_time::ptime my_posix_time = time_corner_points_sharp_.toBoost();
   std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
   ofstream write;
-  write.open("/media/lokia/lokia_data/recordOdometry/scanOdom.txt", ios::app);
+  write.open("/home/lokia/testout/recordOdometry/scanOdom.txt", ios::app);
   write <<  iso_time_str << std::endl;
 	write.close();
+
+  if(cLProcess == 3){
+    lio::sL01[0] = transform_sum_.pos(0);
+    lio::sL01[1] = transform_sum_.pos(1);
+    lio::sL01[2] = transform_sum_.pos(2);
+    std::cout<<iso_time_str<<"\tset lio::sL01\t"<<lio::sL01[0]<<"\t"<<lio::sL01[1]<<"\t"<<lio::sL01[2]<<std::endl;
+  }
 
   // publish cloud results according to the input output ratio
   if (io_ratio_ < 2 || frame_count_ % io_ratio_ == 1) {

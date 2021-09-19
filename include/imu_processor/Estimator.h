@@ -122,7 +122,8 @@ class Estimator : public MeasurementManager, public PointMapping {
   void ProcessImu(double dt,
                   const Vector3d &linear_acceleration,
                   const Vector3d &angular_velocity,
-                  const std_msgs::Header &header);
+                  const std_msgs::Header &header,
+                  const Vector3d &velocityL0);
   void ProcessLaserOdom(const Transform &transform_in, const std_msgs::Header &header);
   void ProcessCompactData(const sensor_msgs::PointCloud2ConstPtr &compact_data, const std_msgs::Header &header);
 

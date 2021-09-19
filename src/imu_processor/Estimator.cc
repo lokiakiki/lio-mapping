@@ -36,6 +36,8 @@
 #include <pcl/filters/extract_indices.h>
 #include "boost/date_time/posix_time/posix_time.hpp"  //lokia test out
 
+#include "point_processor/PointOdometry.h"
+
 namespace lio {
 
 #define CHECK_JACOBIAN 0
@@ -339,8 +341,10 @@ void Estimator::SetupRos(ros::NodeHandle &nh) {
 void Estimator::ProcessImu(double dt,
                            const Vector3d &linear_acceleration,
                            const Vector3d &angular_velocity,
-                           const std_msgs::Header &header) {
+                           const std_msgs::Header &header,
+                           const Vector3d &velocityL0) {
   if (!first_imu_) {
+    std::cout<<"first_imu_ velocityL0 "<<velocityL0[0]<<velocityL0[1]<<velocityL0[2]<<std::endl;
     first_imu_ = true;
     acc_last_ = linear_acceleration;
     gyr_last_ = angular_velocity;
@@ -352,7 +356,7 @@ void Estimator::ProcessImu(double dt,
     I3x3.setIdentity();
     Ps_.push(Vector3d{0, 0, 0});
     Rs_.push(I3x3);
-    Vs_.push(Vector3d{0, 0, 0});
+    Vs_.push(Vector3d{velocityL0[0], velocityL0[1], velocityL0[2]});
     Bgs_.push(Vector3d{0, 0, 0});
     Bas_.push(Vector3d{0, 0, 0});
 //    pre_integrations_.push(std::make_shared<IntegrationBase>(IntegrationBase(acc_last_,
@@ -767,7 +771,7 @@ void Estimator::ProcessLaserOdom(const Transform &transform_in, const std_msgs::
           boost::posix_time::ptime my_posix_time = header.stamp.toBoost();
           std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
           ofstream write;
-          write.open("/media/lokia/lokia_data/recordOdometry/odom.txt", ios::app);
+          write.open("/home/lokia/testout/recordOdometry/odom.txt", ios::app);
           write <<  iso_time_str << std::endl;
           write.close();
         }
@@ -2680,6 +2684,7 @@ void Estimator::SlideWindow() { // NOTE: this function is only for the states an
 }
 
 void Estimator::ProcessEstimation() {
+  int cL = 0; //count lidar frame
 
   while (true) {
     PairMeasurements measurements;
@@ -2692,94 +2697,209 @@ void Estimator::ProcessEstimation() {
     //    DLOG(INFO) << "measurement obtained: " << measurements.size() << ", first imu data size: "
     //              << measurements.front().first.size();
 
+    cL += measurements.size();
+    Vector3d velocityL0(0,0,0);  //velocity of sweep end 0f L0 and start L1
+    static CompactDataConstPtr L0, L1; //2 front lidar
+    
     thread_mutex_.lock();
-    for (auto &measurement : measurements) {
-      ROS_DEBUG_STREAM("measurements ratio: 1:" << measurement.first.size());
-      CompactDataConstPtr compact_data_msg = measurement.second;
-      double ax = 0, ay = 0, az = 0, rx = 0, ry = 0, rz = 0;
-      TicToc tic_toc_imu;
-      tic_toc_imu.Tic();
-      for (auto &imu_msg : measurement.first) {
-        double imu_time = imu_msg->header.stamp.toSec();
-        double laser_odom_time = compact_data_msg->header.stamp.toSec() + mm_config_.msg_time_delay;
-        if (imu_time <= laser_odom_time) {
+    std::cout<<"GetMeasurements\t"<<measurements.size()<<std::endl;
 
-          if (curr_time_ < 0) {
-            curr_time_ = imu_time;
-          }
+    if(cL == 2){
+      ClearState();
+      std::cout<<"ClearState 2"<<std::endl;
 
-          double dt = imu_time - curr_time_;
-          ROS_ASSERT(dt >= 0);
-          curr_time_ = imu_time;
-          ax = imu_msg->linear_acceleration.x;
-          ay = imu_msg->linear_acceleration.y;
-          az = imu_msg->linear_acceleration.z;
-          rx = imu_msg->angular_velocity.x;
-          ry = imu_msg->angular_velocity.y;
-          rz = imu_msg->angular_velocity.z;
-          ProcessImu(dt, Vector3d(ax, ay, az), Vector3d(rx, ry, rz), imu_msg->header);
+      for(auto &measurement : measurements){
+        std::cout<<"lidarSize\t"<<measurements.size()<<std::endl;
+        
+        PointOdometry odom;
+        L1 = CompactDataConstPtr(measurement.second);
+        std::cout<<"L1\t"<<L1->header.stamp<<std::endl;
 
-        } else {
+        // odom.sL01 = odom.Process4Odom(); //L0 and L1 translation - lidar odometry
+        std::cout<<"3"<<std::endl;
+        
+        Vector3d accL01(0,0,0);  //linear acceleration of [tL0,tL1]
+        double tImuL01 = 0; //IMU time interval of [tL0,tL1]
+        double tImuInterval = 0;          
+        double tImuLast = L0->header.stamp.toSec();
+        std::cout<<"4"<<std::endl;
 
-          // NOTE: interpolate imu measurement
-          double dt_1 = laser_odom_time - curr_time_;
-          double dt_2 = imu_time - laser_odom_time;
-          curr_time_ = laser_odom_time;
-          ROS_ASSERT(dt_1 >= 0);
-          ROS_ASSERT(dt_2 >= 0);
-          ROS_ASSERT(dt_1 + dt_2 > 0);
-          double w1 = dt_2 / (dt_1 + dt_2);
-          double w2 = dt_1 / (dt_1 + dt_2);
-          ax = w1 * ax + w2 * imu_msg->linear_acceleration.x;
-          ay = w1 * ay + w2 * imu_msg->linear_acceleration.y;
-          az = w1 * az + w2 * imu_msg->linear_acceleration.z;
-          rx = w1 * rx + w2 * imu_msg->angular_velocity.x;
-          ry = w1 * ry + w2 * imu_msg->angular_velocity.y;
-          rz = w1 * rz + w2 * imu_msg->angular_velocity.z;
-          ProcessImu(dt_1, Vector3d(ax, ay, az), Vector3d(rx, ry, rz), imu_msg->header);
-
+        int cImu=0;
+        for (auto &imu_msg : measurement.first){
+          ++cImu;
+          tImuInterval = imu_msg->header.stamp.toSec() - tImuLast;
+          tImuLast = imu_msg->header.stamp.toSec();
+          
+          accL01[0] += imu_msg->linear_acceleration.x * tImuInterval;
+          accL01[1] += imu_msg->linear_acceleration.x * tImuInterval;
+          accL01[2] += imu_msg->linear_acceleration.x * tImuInterval;
+          tImuL01 += tImuInterval;
         }
+
+        std::cout<<"cImu\t"<<cImu<<std::endl;
+        Vector3d accL01Average = accL01 / tImuL01; 
+        double tL01 = L1->header.stamp.toSec() - L0->header.stamp.toSec();
+        velocityL0 = lio::sL01 / tL01 - tL01 * accL01Average / 2;
+        std::cout<<"get lio::sL01\t"<<lio::sL01[0]<<"\t"<<lio::sL01[1]<<"\t"<<lio::sL01[2]<<std::endl;
+
+        //lokia test out
+        boost::posix_time::ptime my_posix_time = L0->header.stamp.toBoost();
+        std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
+        ofstream write;
+        write.open("/home/lokia/testout/recordOdometry/velocityL0.txt", ios::app);
+        write <<  iso_time_str << "\n" << velocityL0[0] << "\t" << velocityL0[1] << "\t" << velocityL0[2] << std::endl;
+        write.close();        
+        std::cout<<"5"<<std::endl; 
+
+
+        ROS_DEBUG_STREAM("measurements ratio: 1:" << measurement.first.size());
+        CompactDataConstPtr compact_data_msg = measurement.second;
+        std::cout<<"laser_odom_time\t"<<compact_data_msg->header.stamp<<std::endl;
+        double ax = 0, ay = 0, az = 0, rx = 0, ry = 0, rz = 0;
+        TicToc tic_toc_imu;
+        tic_toc_imu.Tic();
+
+        for (auto &imu_msg : measurement.first) {
+          double imu_time = imu_msg->header.stamp.toSec();
+          double laser_odom_time = compact_data_msg->header.stamp.toSec() + mm_config_.msg_time_delay;
+          if (imu_time <= laser_odom_time) {
+            if (curr_time_ < 0) {
+              curr_time_ = imu_time;
+            }
+
+            double dt = imu_time - curr_time_;
+            ROS_ASSERT(dt >= 0);
+            curr_time_ = imu_time;
+            ax = imu_msg->linear_acceleration.x;
+            ay = imu_msg->linear_acceleration.y;
+            az = imu_msg->linear_acceleration.z;
+            rx = imu_msg->angular_velocity.x;
+            ry = imu_msg->angular_velocity.y;
+            rz = imu_msg->angular_velocity.z;
+            ProcessImu(dt, Vector3d(ax, ay, az), Vector3d(rx, ry, rz), imu_msg->header, velocityL0);
+          } else {
+            // NOTE: interpolate imu measurement
+            double dt_1 = laser_odom_time - curr_time_;
+            double dt_2 = imu_time - laser_odom_time;
+            curr_time_ = laser_odom_time;
+            ROS_ASSERT(dt_1 >= 0);
+            ROS_ASSERT(dt_2 >= 0);
+            ROS_ASSERT(dt_1 + dt_2 > 0);
+            double w1 = dt_2 / (dt_1 + dt_2);
+            double w2 = dt_1 / (dt_1 + dt_2);
+            ax = w1 * ax + w2 * imu_msg->linear_acceleration.x;
+            ay = w1 * ay + w2 * imu_msg->linear_acceleration.y;
+            az = w1 * az + w2 * imu_msg->linear_acceleration.z;
+            rx = w1 * rx + w2 * imu_msg->angular_velocity.x;
+            ry = w1 * ry + w2 * imu_msg->angular_velocity.y;
+            rz = w1 * rz + w2 * imu_msg->angular_velocity.z;
+            ProcessImu(dt_1, Vector3d(ax, ay, az), Vector3d(rx, ry, rz), imu_msg->header, velocityL0);
+          }
+        }
+        DLOG(INFO) << "per imu time: " << tic_toc_imu.Toc() / measurement.first.size() << " ms";
+        ROS_DEBUG("processing laser data with stamp %f \n", compact_data_msg->header.stamp.toSec());
+
+        TicToc t_s;
+        this->ProcessCompactData(compact_data_msg, compact_data_msg->header);
+        double whole_t = t_s.Toc();
       }
+    } //end cL == 2
+    else{ 
+      for (auto &measurement : measurements) {
+        ROS_DEBUG_STREAM("measurements ratio: 1:" << measurement.first.size());
+        CompactDataConstPtr compact_data_msg = measurement.second;
+        std::cout<<"laser_odom_time\t"<<compact_data_msg->header.stamp<<std::endl;
+        if(cL==1){
+          L0 = CompactDataConstPtr(measurement.second);
+          std::cout<<"L0\t"<<L0->header.stamp<<std::endl;
+        }else{
+          std::cout<<"cL!= 1 or 2"<<std::endl;
+        }
 
-      DLOG(INFO) << "per imu time: " << tic_toc_imu.Toc() / measurement.first.size() << " ms";
+        double ax = 0, ay = 0, az = 0, rx = 0, ry = 0, rz = 0;
+        TicToc tic_toc_imu;
+        tic_toc_imu.Tic();
 
-      ROS_DEBUG("processing laser data with stamp %f \n", compact_data_msg->header.stamp.toSec());
+        for (auto &imu_msg : measurement.first) {
+          double imu_time = imu_msg->header.stamp.toSec();
+          double laser_odom_time = compact_data_msg->header.stamp.toSec() + mm_config_.msg_time_delay;
+          if (imu_time <= laser_odom_time) {
+            if (curr_time_ < 0) {
+              curr_time_ = imu_time;
+            }
 
-      TicToc t_s;
+            double dt = imu_time - curr_time_;
+            ROS_ASSERT(dt >= 0);
+            curr_time_ = imu_time;
+            ax = imu_msg->linear_acceleration.x;
+            ay = imu_msg->linear_acceleration.y;
+            az = imu_msg->linear_acceleration.z;
+            rx = imu_msg->angular_velocity.x;
+            ry = imu_msg->angular_velocity.y;
+            rz = imu_msg->angular_velocity.z;
+            ProcessImu(dt, Vector3d(ax, ay, az), Vector3d(rx, ry, rz), imu_msg->header, velocityL0);
 
-      this->ProcessCompactData(compact_data_msg, compact_data_msg->header);
+          } else {
+            // NOTE: interpolate imu measurement
+            double dt_1 = laser_odom_time - curr_time_;
+            double dt_2 = imu_time - laser_odom_time;
+            curr_time_ = laser_odom_time;
+            ROS_ASSERT(dt_1 >= 0);
+            ROS_ASSERT(dt_2 >= 0);
+            ROS_ASSERT(dt_1 + dt_2 > 0);
+            double w1 = dt_2 / (dt_1 + dt_2);
+            double w2 = dt_1 / (dt_1 + dt_2);
+            ax = w1 * ax + w2 * imu_msg->linear_acceleration.x;
+            ay = w1 * ay + w2 * imu_msg->linear_acceleration.y;
+            az = w1 * az + w2 * imu_msg->linear_acceleration.z;
+            rx = w1 * rx + w2 * imu_msg->angular_velocity.x;
+            ry = w1 * ry + w2 * imu_msg->angular_velocity.y;
+            rz = w1 * rz + w2 * imu_msg->angular_velocity.z;
+            ProcessImu(dt_1, Vector3d(ax, ay, az), Vector3d(rx, ry, rz), imu_msg->header, velocityL0);
 
-    //      const auto &pos_from_msg = compact_data_msg->pose.pose.position;
-    //      const auto &quat_from_msg = compact_data_msg->pose.pose.orientation;
-    //      transform_to_init_.pos.x() = pos_from_msg.x;
-    //      transform_to_init_.pos.y() = pos_from_msg.y;
-    //      transform_to_init_.pos.z() = pos_from_msg.z;
-    //
-    //      transform_to_init_.rot.w() = quat_from_msg.w;
-    //      transform_to_init_.rot.x() = quat_from_msg.x;
-    //      transform_to_init_.rot.y() = quat_from_msg.y;
-    //      transform_to_init_.rot.z() = quat_from_msg.z;
+          }
+        }
 
-          // TODO: move all the processes into node?
+        DLOG(INFO) << "per imu time: " << tic_toc_imu.Toc() / measurement.first.size() << " ms";
 
-    //      DLOG(INFO) << transform_to_init_;
-    //      ProcessLaserOdom(transform_to_init_, compact_data_msg->header);
+        ROS_DEBUG("processing laser data with stamp %f \n", compact_data_msg->header.stamp.toSec());
 
-      double whole_t = t_s.Toc();
-    //      PrintStatistics(this, whole_t);
-    //      std_msgs::Header header = compact_data_msg->header;
-    //      header.frame_id = "world";
+        TicToc t_s;
 
-          // Pub results
+        this->ProcessCompactData(compact_data_msg, compact_data_msg->header);
 
-    //      PubOdometry(estimator, header);
-    //      PubKeyPoses(estimator, header);
-    //      PubCameraPose(estimator, header);
-    //      PubPointCloud(estimator, header);
-    //      PubTF(estimator, header);
-    //      pubKeyframe(estimator);
-    //      if (relo_msg != NULL)
-    //        PubRelocalization(estimator);
+      //      const auto &pos_from_msg = compact_data_msg->pose.pose.position;
+      //      const auto &quat_from_msg = compact_data_msg->pose.pose.orientation;
+      //      transform_to_init_.pos.x() = pos_from_msg.x;
+      //      transform_to_init_.pos.y() = pos_from_msg.y;
+      //      transform_to_init_.pos.z() = pos_from_msg.z;
+      //
+      //      transform_to_init_.rot.w() = quat_from_msg.w;
+      //      transform_to_init_.rot.x() = quat_from_msg.x;
+      //      transform_to_init_.rot.y() = quat_from_msg.y;
+      //      transform_to_init_.rot.z() = quat_from_msg.z;
+
+            // TODO: move all the processes into node?
+
+      //      DLOG(INFO) << transform_to_init_;
+      //      ProcessLaserOdom(transform_to_init_, compact_data_msg->header);
+
+        double whole_t = t_s.Toc();
+      //      PrintStatistics(this, whole_t);
+      //      std_msgs::Header header = compact_data_msg->header;
+      //      header.frame_id = "world";
+
+            // Pub results
+
+      //      PubOdometry(estimator, header);
+      //      PubKeyPoses(estimator, header);
+      //      PubCameraPose(estimator, header);
+      //      PubPointCloud(estimator, header);
+      //      PubTF(estimator, header);
+      //      pubKeyframe(estimator);
+      //      if (relo_msg != NULL)
+      //        PubRelocalization(estimator);
+      }
     }
     thread_mutex_.unlock();
     buf_mutex_.lock();

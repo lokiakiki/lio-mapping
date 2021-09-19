@@ -224,7 +224,7 @@ void MapBuilder::PublishMapBuilderResults() {
   std::string iso_time_str = boost::posix_time::to_iso_extended_string(my_posix_time);
   std::cout << "map "  << iso_time_str << std::endl; 
   ofstream write;
-  write.open("/media/lokia/lokia_data/recordOdometry/map.txt", ios::app);
+  write.open("/home/lokia/testout/recordOdometry/map.txt", ios::app);
   write <<  iso_time_str << std::endl;
   write.close();
 }
@@ -248,7 +248,7 @@ void MapBuilder::ProcessMap() {
   ++frame_count_;
   if (frame_count_ < num_stack_frames_) {
     ofstream write;
-    write.open("/media/lokia/lokia_data/recordOdometry/returnReason.txt", ios::app);
+    write.open("/home/lokia/testout/recordOdometry/returnReason.txt", ios::app);
     write <<  "MBf_count_<num_stack_f_ after: " << time_laser_odometry_ << std::endl;
     write.close();
     return;
